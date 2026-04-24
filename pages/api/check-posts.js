@@ -7,10 +7,8 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-
 const cronSecret = req.headers['x-cron-secret'] || req.query.secret;
-const isDev = process.env.NODE_ENV !== 'production';
-if (!isDev && cronSecret !== process.env.CRON_SECRET) {
+if (cronSecret && cronSecret !== process.env.CRON_SECRET) {
   return res.status(401).json({ error: 'Unauthorized' });
 }
 
