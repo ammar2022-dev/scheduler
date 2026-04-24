@@ -17,10 +17,10 @@ if (cronSecret && cronSecret !== process.env.CRON_SECRET) {
 
     const now = new Date();
 
-    const duePosts = await ScheduledPost.find({
-      status: 'pending',
-      scheduled_time: { $lte: now },
-    }).limit(20);
+  const duePosts = await ScheduledPost.find({
+  status: 'pending',
+  scheduled_time: { $lte: now },
+}).sort({ scheduled_time: 1 }).limit(20);
 
     if (duePosts.length === 0) {
       return res.status(200).json({ success: true, published: 0, message: 'No posts due' });
