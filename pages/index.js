@@ -190,7 +190,7 @@ export default function Home() {
   const [posts, setPosts] = useState([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('schedule');
-  const [form, setForm] = useState({ title: '', body: '', tags: 'blurt', scheduled_time: '' });
+  const [form, setForm] = useState({ title: '', body: '', tags: 'blurt-1787181', scheduled_time: '' });
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
   const [formLoading, setFormLoading] = useState(false);
