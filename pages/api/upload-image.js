@@ -42,9 +42,12 @@ export default async function handler(req, res) {
     // 3. Sign with "ImageSigningChallenge" prefix
     const prefix = Buffer.from('ImageSigningChallenge');
     const buf = Buffer.concat([prefix, imageBuffer]);
-const bufSha = crypto.createHash('sha256').update(buf).digest();
-const privateKey = PrivateKey.fromString(postingKey);
-const signature = privateKey.sign(bufSha).toString();
+    const bufSha = crypto.createHash('sha256').update(buf).digest();
+    
+    const privateKey = PrivateKey.fromString(postingKey);
+    // FIX: sign() returns Buffer or string directly, no .toHex() needed
+    const signatureBuffer = privateKey.sign(bufSha);
+    const signature = signatureBuffer.toString('hex');
 
     console.log(`[IMAGE] Uploading for @${username}, sig: ${signature.slice(0, 20)}...`);
 
