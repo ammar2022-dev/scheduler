@@ -35,58 +35,57 @@ export default async function handler(req, res) {
 
     const postingKey = decrypt(account.posting_key_encrypted);
     const imageBuffer = Buffer.from(imageBase64, 'base64');
-    
-    // Generate SHA256 hash of image for filename
+
+    // 1. Generate SHA256 hash of the image (must match browser's method)
     const imageHash = crypto.createHash('sha256').update(imageBuffer).digest('hex');
     
-    // Sign the hash with private key
+    // 2. Sign the hash with posting key
     const privateKey = PrivateKey.fromString(postingKey);
     const hashBuffer = Buffer.from(imageHash, 'hex');
     const signatureBuffer = privateKey.sign(hashBuffer);
     const signature = signatureBuffer.toString('hex');
 
-    console.log(`[IMAGE] Uploading for @${username}`);
-    console.log(`[IMAGE] Image hash: ${imageHash}`);
+    console.log(`[UPLOAD] Username: ${username}`);
+    console.log(`[UPLOAD] Image hash: ${imageHash}`);
+    console.log(`[UPLOAD] Signature: ${signature.substring(0, 60)}...`);
 
-    // CORRECT ENDPOINT: Direct POST to blurtimage endpoint
-    const uploadUrl = `https://img.blurt.blog/blurtimage/${username}/`;
-    
-    // Send as multipart/form-data
-    const formData = new FormData();
-    formData.append('image', new Blob([imageBuffer], { type: 'image/png' }), `${imageHash}.png`);
-    formData.append('signature', signature);
-    formData.append('hash', imageHash);
+    // 3. CORRECT ENDPOINT (from your successful request)
+    const uploadUrl = `https://img-upload.blurt.blog/${username}/${signature}`;
 
+    // 4. Upload as binary with proper headers (matching browser behavior)
     const uploadRes = await fetch(uploadUrl, {
       method: 'POST',
-      body: formData,
-      // Don't set Content-Type header - fetch will set it automatically with boundary
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': imageBuffer.length.toString(),
+        'Origin': 'https://blurt.blog',  // Important!
+      },
+      body: imageBuffer,
     });
 
     const responseText = await uploadRes.text();
-    console.log(`[IMAGE] Response status: ${uploadRes.status}`);
-    console.log(`[IMAGE] Response text: ${responseText.substring(0, 200)}`);
+    console.log(`[UPLOAD] Response status: ${uploadRes.status}`);
+    console.log(`[UPLOAD] Response body: ${responseText}`);
 
     if (!uploadRes.ok) {
       throw new Error(`Upload failed with status ${uploadRes.status}: ${responseText}`);
     }
 
-    let imageUrl;
+    // Parse response (should be JSON like your example)
+    let uploadData;
     try {
-      // Try to parse as JSON
-      const uploadData = JSON.parse(responseText);
-      imageUrl = uploadData.url || uploadData.image_url || uploadData;
+      uploadData = JSON.parse(responseText);
     } catch {
-      // If not JSON, maybe server returns plain text URL
-      imageUrl = responseText.trim();
+      throw new Error(`Invalid response format: ${responseText}`);
     }
 
-    // Construct URL if needed
-    if (!imageUrl || !imageUrl.startsWith('http')) {
-      imageUrl = `https://img.blurt.blog/blurtimage/${username}/${imageHash}.png`;
+    if (!uploadData.ok) {
+      throw new Error(`Upload failed: ${uploadData.message || 'Unknown error'}`);
     }
 
-    console.log(`[IMAGE] ✅ Uploaded: ${imageUrl}`);
+    const imageUrl = uploadData.url;
+    
+    console.log(`[UPLOAD] ✅ Success! URL: ${imageUrl}`);
 
     return res.status(200).json({
       success: true,
@@ -95,7 +94,7 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    console.error('[IMAGE] Error:', err.message);
+    console.error('[UPLOAD] Error:', err);
     return res.status(500).json({ error: 'Image upload failed: ' + err.message });
   }
 }
