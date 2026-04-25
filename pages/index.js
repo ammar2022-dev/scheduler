@@ -1004,7 +1004,7 @@ export default function Home() {
                             </div>
                             {post.status === 'done' && post.permlink && (
                               <a
-                                href={`https://blurt.blog/@${post.account_name}/${post.permlink}`}
+                                href={`https://blurt.blog/blurt/@${post.account_name}/${post.permlink}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{ color: COLORS.primary, fontSize: '11px', display: 'block', marginTop: '2px' }}
