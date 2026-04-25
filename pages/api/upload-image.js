@@ -1,7 +1,8 @@
 import dbConnect from '../../lib/mongodb';
 import Account from '../../models/Account';
 import { decrypt } from '../../lib/encrypt';
-import { PrivateKey, Signature, hash } from 'dsteem';
+import { PrivateKey, Signature } from 'dsteem';
+import crypto from 'crypto'
 
 export const config = {
   api: {
@@ -41,8 +42,7 @@ export default async function handler(req, res) {
     // 3. Sign with "ImageSigningChallenge" prefix
     const prefix = Buffer.from('ImageSigningChallenge');
     const buf = Buffer.concat([prefix, imageBuffer]);
-    const bufSha = hash.sha256(buf);
-
+const bufSha = crypto.createHash('sha256').update(buf).digest();
     const privateKey = PrivateKey.fromString(postingKey);
     const signature = Signature.signBufferSha256(bufSha, privateKey).toHex();
 
