@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleString('en-PK', {
@@ -41,6 +41,10 @@ export default function Home() {
   const [cronLoading, setCronLoading] = useState(false);
   const [cronResult, setCronResult] = useState('');
   const [now, setNow] = useState(new Date());
+  const textareaRef = useRef(null);
+
+
+
 
   useEffect(() => {
     const saved = sessionStorage.getItem('blurt_user');
@@ -155,13 +159,12 @@ export default function Home() {
     } catch (err) { alert('Network error'); }
   }
 
-  async function handleImageUpload(file) {
+ async function handleImageUpload(file) {
   if (!file || !file.type.startsWith('image/')) {
     alert('Please select an image file');
     return;
   }
 
-  // Convert to base64
   const base64 = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result.split(',')[1]);
@@ -170,8 +173,7 @@ export default function Home() {
   });
 
   setFormError('');
-  const uploadingMsg = '⏳ Uploading image...';
-  setFormSuccess(uploadingMsg);
+  setFormSuccess('⏳ Uploading image...');
 
   try {
     const res = await fetch('/api/upload-image', {
@@ -187,12 +189,34 @@ export default function Home() {
     const data = await res.json();
 
     if (data.success) {
-      // Insert markdown at end of body
-      setForm(prev => ({
-        ...prev,
-        body: prev.body + '\n\n' + data.markdown,
-      }));
-      setFormSuccess('✅ Image uploaded and inserted!');
+      const markdown = '\n\n' + data.markdown + '\n\n';
+
+      // Cursor position pe insert karo
+      const textarea = textareaRef.current;
+      if (textarea) {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentBody = form.body;
+        const newBody =
+          currentBody.substring(0, start) +
+          markdown +
+          currentBody.substring(end);
+
+        setForm(prev => ({ ...prev, body: newBody }));
+
+        // Cursor ko image ke baad rakh do
+        setTimeout(() => {
+          textarea.focus();
+          const newPos = start + markdown.length;
+          textarea.setSelectionRange(newPos, newPos);
+        }, 50);
+
+      } else {
+        // Fallback - end mein add karo
+        setForm(prev => ({ ...prev, body: prev.body + markdown }));
+      }
+
+      setFormSuccess('✅ Image uploaded!');
       setTimeout(() => setFormSuccess(''), 3000);
     } else {
       setFormError('Image upload failed: ' + data.error);
@@ -484,6 +508,7 @@ async function handlePaste(e) {
               />
             <label style={css.label}>Post Content (Markdown supported) *</label>
 <textarea
+  ref={textareaRef}
   style={{ ...css.input, height: '160px', resize: 'vertical', lineHeight: '1.5' }}
   placeholder="Write your post content here... Paste image directly (Ctrl+V) or use upload button below"
   value={form.body}
