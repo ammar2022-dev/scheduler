@@ -2,7 +2,8 @@ import dbConnect from '../../lib/mongodb';
 import Account from '../../models/Account';
 import { decrypt } from '../../lib/encrypt';
 import { PrivateKey } from 'dsteem';
-import crypto from 'crypto'
+import crypto from 'crypto';
+import FormData from 'form-data'; // Install: npm install form-data
 
 export const config = {
   api: {
@@ -35,47 +36,59 @@ export default async function handler(req, res) {
 
     const postingKey = decrypt(account.posting_key_encrypted);
     
-    // Convert base64 to buffer - handle data URL if present
+    // Clean base64 string
     let cleanBase64 = imageBase64;
     if (imageBase64.includes(',')) {
       cleanBase64 = imageBase64.split(',')[1];
     }
+    
+    // Convert to buffer
     const imageBuffer = Buffer.from(cleanBase64, 'base64');
+    const fileExtension = filename ? filename.split('.').pop() : 'png';
+    const finalFilename = filename || `image.${fileExtension}`;
 
     console.log(`[UPLOAD] Username: ${username}`);
-    console.log(`[UPLOAD] Image size: ${imageBuffer.length} bytes`);
+    console.log(`[UPLOAD] File: ${finalFilename}, Size: ${imageBuffer.length} bytes`);
 
-    // Generate SHA256 hash
+    // Generate image hash for signing
     const imageHash = crypto.createHash('sha256').update(imageBuffer).digest('hex');
     
-    // Sign the hash
+    // Sign the hash with posting key
     const privateKey = PrivateKey.fromString(postingKey);
     const hashBuffer = Buffer.from(imageHash, 'hex');
     const signatureBuffer = privateKey.sign(hashBuffer);
     const signature = signatureBuffer.toString('hex');
 
-    console.log(`[UPLOAD] Image hash: ${imageHash}`);
+    console.log(`[UPLOAD] Image hash: ${imageHash.substring(0, 32)}...`);
     console.log(`[UPLOAD] Signature: ${signature.substring(0, 60)}...`);
 
-    // CORRECT: Upload to img-upload.blurt.blog
+    // Create multipart form data
+    const formData = new FormData();
+    formData.append('file', imageBuffer, {
+      filename: finalFilename,
+      contentType: `image/${fileExtension === 'jpg' ? 'jpeg' : fileExtension}`,
+    });
+
+    // OPTIONAL: If server expects specific field name, try these variations
+    // formData.append('image', imageBuffer, finalFilename);
+    // formData.append('upload', imageBuffer, finalFilename);
+
+    // Upload URL with signature in path
     const uploadUrl = `https://img-upload.blurt.blog/${username}/${signature}`;
 
-    // CRITICAL: Send as binary with proper headers
     const uploadRes = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': imageBuffer.length.toString(),
+        ...formData.getHeaders(), // This adds correct Content-Type with boundary
       },
-      body: imageBuffer, // Direct buffer, not converted
+      body: formData,
     });
 
     const responseText = await uploadRes.text();
     console.log(`[UPLOAD] Response status: ${uploadRes.status}`);
-    console.log(`[UPLOAD] Response body: ${responseText}`);
+    console.log(`[UPLOAD] Response body: ${responseText.substring(0, 300)}`);
 
     if (!uploadRes.ok) {
-      // Try to parse error response
       let errorMessage = responseText;
       try {
         const errorJson = JSON.parse(responseText);
@@ -83,7 +96,7 @@ export default async function handler(req, res) {
       } catch {
         // Keep as is
       }
-      throw new Error(`Upload failed: ${errorMessage}`);
+      throw new Error(`Upload failed (${uploadRes.status}): ${errorMessage}`);
     }
 
     // Parse success response
@@ -91,7 +104,7 @@ export default async function handler(req, res) {
     try {
       uploadData = JSON.parse(responseText);
     } catch {
-      throw new Error(`Invalid response: ${responseText}`);
+      throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
     }
 
     if (!uploadData.ok) {
@@ -105,11 +118,11 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       url: imageUrl,
-      markdown: `![${filename || 'image.png'}](${imageUrl})`,
+      markdown: `![${finalFilename}](${imageUrl})`,
     });
 
   } catch (err) {
-    console.error('[UPLOAD] Error:', err);
+    console.error('[UPLOAD] Error:', err.message);
     return res.status(500).json({ error: 'Image upload failed: ' + err.message });
   }
 }
