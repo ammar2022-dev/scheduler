@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     const buf = Buffer.concat([prefix, imageBuffer]);
 const bufSha = crypto.createHash('sha256').update(buf).digest();
 const privateKey = PrivateKey.fromString(postingKey);
-const signature = privateKey.sign(bufSha).toHex();
+const signature = privateKey.sign(bufSha).toString();
 
     console.log(`[IMAGE] Uploading for @${username}, sig: ${signature.slice(0, 20)}...`);
 
