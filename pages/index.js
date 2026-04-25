@@ -155,6 +155,67 @@ export default function Home() {
     } catch (err) { alert('Network error'); }
   }
 
+  async function handleImageUpload(file) {
+  if (!file || !file.type.startsWith('image/')) {
+    alert('Please select an image file');
+    return;
+  }
+
+  // Convert to base64
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  setFormError('');
+  const uploadingMsg = '⏳ Uploading image...';
+  setFormSuccess(uploadingMsg);
+
+  try {
+    const res = await fetch('/api/upload-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username,
+        imageBase64: base64,
+        filename: file.name || 'image.png',
+      }),
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      // Insert markdown at end of body
+      setForm(prev => ({
+        ...prev,
+        body: prev.body + '\n\n' + data.markdown,
+      }));
+      setFormSuccess('✅ Image uploaded and inserted!');
+      setTimeout(() => setFormSuccess(''), 3000);
+    } else {
+      setFormError('Image upload failed: ' + data.error);
+    }
+  } catch (err) {
+    setFormError('Image upload error: ' + err.message);
+  }
+}
+
+async function handlePaste(e) {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      await handleImageUpload(file);
+      break;
+    }
+  }
+}
+
   async function handleTriggerCron() {
     setCronLoading(true);
     setCronResult('');
@@ -421,14 +482,40 @@ export default function Home() {
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 required
               />
-              <label style={css.label}>Post Content (Markdown supported) *</label>
-              <textarea
-                style={{ ...css.input, height: '160px', resize: 'vertical', lineHeight: '1.5' }}
-                placeholder="Write your post content here..."
-                value={form.body}
-                onChange={(e) => setForm({ ...form, body: e.target.value })}
-                required
-              />
+            <label style={css.label}>Post Content (Markdown supported) *</label>
+<textarea
+  style={{ ...css.input, height: '160px', resize: 'vertical', lineHeight: '1.5' }}
+  placeholder="Write your post content here... Paste image directly (Ctrl+V) or use upload button below"
+  value={form.body}
+  onChange={(e) => setForm({ ...form, body: e.target.value })}
+  onPaste={handlePaste}
+  required
+/>
+
+{/* Image Upload Button */}
+<div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+  <label style={{
+    padding: '8px 16px',
+    background: 'rgba(79,142,247,0.2)',
+    border: '1px solid rgba(79,142,247,0.4)',
+    borderRadius: '8px',
+    color: '#4f8ef7',
+    fontSize: '13px',
+    cursor: 'pointer',
+    fontWeight: '600',
+  }}>
+    🖼️ Upload Image
+    <input
+      type="file"
+      accept="image/*"
+      style={{ display: 'none' }}
+      onChange={(e) => e.target.files[0] && handleImageUpload(e.target.files[0])}
+    />
+  </label>
+  <span style={{ fontSize: '12px', color: '#666' }}>
+    Ya seedha Ctrl+V se paste karo
+  </span>
+</div>
               <label style={css.label}>Tags (comma-separated)</label>
               <input
                 style={css.input}
