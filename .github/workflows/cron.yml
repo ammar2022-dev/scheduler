@@ -1,33 +1,12 @@
 name: Blurt Post Publisher
 
 on:
-  schedule:
-    - cron: '* * * * *'
-  workflow_dispatch:
+  workflow_dispatch:  # Sirf manual trigger ke liye rakha hai
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
-
     steps:
-      - name: Publish Due Posts
+      - name: Manual Publish
         run: |
-          echo "⏰ Checking at $(date -u)"
-          
-          RESPONSE=$(curl -s -L -w "\n%{http_code}" \
-            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
-            "https://scheduler-alpha-one.vercel.app/api/check-posts")
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | head -n -1)
-          
-          echo "Status: $HTTP_CODE"
-          echo "Response: $BODY"
-          
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Failed with status $HTTP_CODE"
-            exit 1
-          fi
-          
-          echo "✅ Done"
+          echo "Manual trigger only - cron-job.org handles automatic publishing"
