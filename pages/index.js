@@ -1,4 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { 
+  Calendar, 
+  Clock, 
+  ListTodo, 
+  Plus, 
+  LogOut, 
+  Upload, 
+  Trash2, 
+  ExternalLink,
+  Zap,
+  LayoutDashboard,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+  ClockIcon,
+  XCircle,
+  Image as ImageIcon,
+  Send
+} from 'lucide-react';
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleString('en-PK', {
@@ -9,17 +28,15 @@ function formatDate(dateStr) {
 
 function statusBadge(status) {
   const styles = {
-    pending: { bg: '#fff3cd', color: '#856404', label: '⏳ Pending' },
-    done:    { bg: '#d4edda', color: '#155724', label: '✅ Published' },
-    failed:  { bg: '#f8d7da', color: '#721c24', label: '❌ Failed' },
+    pending: { bg: 'rgba(251, 191, 36, 0.1)', color: '#FBBF24', label: 'Pending', icon: ClockIcon },
+    done:    { bg: 'rgba(16, 185, 129, 0.1)', color: '#10B981', label: 'Published', icon: CheckCircle2 },
+    failed:  { bg: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', label: 'Failed', icon: XCircle },
   };
   const s = styles[status] || styles.pending;
+  const Icon = s.icon;
   return (
-    <span style={{
-      background: s.bg, color: s.color,
-      padding: '3px 10px', borderRadius: '12px',
-      fontSize: '12px', fontWeight: '600',
-    }}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium`} style={{ background: s.bg, color: s.color }}>
+      <Icon size={12} />
       {s.label}
     </span>
   );
@@ -43,9 +60,6 @@ export default function Home() {
   const [now, setNow] = useState(new Date());
   const textareaRef = useRef(null);
 
-
-
-
   useEffect(() => {
     const saved = sessionStorage.getItem('blurt_user');
     if (saved) { setUsername(saved); setLoggedIn(true); }
@@ -66,7 +80,6 @@ export default function Home() {
     if (loggedIn && username) fetchPosts();
   }, [loggedIn, username, fetchPosts]);
 
-  // Live clock for countdown
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
@@ -131,7 +144,7 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.success) {
-        setFormSuccess(`✅ Post scheduled for ${formatDate(form.scheduled_time)}`);
+        setFormSuccess(`Post scheduled for ${formatDate(form.scheduled_time)}`);
         setForm({ title: '', body: '', tags: 'blurt', scheduled_time: '' });
         fetchPosts();
         setTimeout(() => setActiveTab('list'), 1500);
@@ -173,7 +186,7 @@ export default function Home() {
   });
 
   setFormError('');
-  setFormSuccess('⏳ Uploading image...');
+  setFormSuccess('Uploading image...');
 
   try {
     const res = await fetch('/api/upload-image', {
@@ -191,7 +204,6 @@ export default function Home() {
     if (data.success) {
       const markdown = '\n\n' + data.markdown + '\n\n';
 
-      // Cursor position pe insert karo
       const textarea = textareaRef.current;
       if (textarea) {
         const start = textarea.selectionStart;
@@ -204,7 +216,6 @@ export default function Home() {
 
         setForm(prev => ({ ...prev, body: newBody }));
 
-        // Cursor ko image ke baad rakh do
         setTimeout(() => {
           textarea.focus();
           const newPos = start + markdown.length;
@@ -212,11 +223,10 @@ export default function Home() {
         }, 50);
 
       } else {
-        // Fallback - end mein add karo
         setForm(prev => ({ ...prev, body: prev.body + markdown }));
       }
 
-      setFormSuccess('✅ Image uploaded!');
+      setFormSuccess('Image uploaded!');
       setTimeout(() => setFormSuccess(''), 3000);
     } else {
       setFormError('Image upload failed: ' + data.error);
@@ -247,18 +257,18 @@ async function handlePaste(e) {
       const res = await fetch('/api/check-posts');
       const data = await res.json();
       if (data.message === 'No posts due') {
-        setCronResult('⏳ No posts due yet — scheduled time not reached');
+        setCronResult('No posts due yet — scheduled time not reached');
       } else if (data.published > 0) {
-        setCronResult(`✅ ${data.published} post(s) published successfully!`);
+        setCronResult(`${data.published} post(s) published successfully!`);
         fetchPosts();
       } else if (data.failed > 0) {
-        setCronResult(`❌ ${data.failed} post(s) failed — check My Posts for error`);
+        setCronResult(`${data.failed} post(s) failed — check My Posts for error`);
         fetchPosts();
       } else {
         setCronResult(JSON.stringify(data));
       }
     } catch (err) {
-      setCronResult('❌ Error: ' + err.message);
+      setCronResult('Error: ' + err.message);
     } finally {
       setCronLoading(false);
     }
@@ -272,147 +282,75 @@ async function handlePaste(e) {
 
   function getCountdown(scheduledTime) {
     const diff = new Date(scheduledTime) - now;
-    if (diff <= 0) return '🔴 Due now — click Publish Due Posts button!';
+    if (diff <= 0) return 'Due now — click Publish Due Posts button!';
     const mins = Math.floor(diff / 60000);
     const secs = Math.floor((diff % 60000) / 1000);
     if (mins >= 60) {
       const hrs = Math.floor(mins / 60);
       const remainMins = mins % 60;
-      return `⏱ ${hrs}h ${remainMins}m remaining`;
+      return `${hrs}h ${remainMins}m remaining`;
     }
-    return `⏱ ${mins}m ${secs}s remaining`;
+    return `${mins}m ${secs}s remaining`;
   }
 
-  const css = {
-    page: {
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      fontFamily: "'Segoe UI', sans-serif",
-      color: '#e0e0e0',
-      padding: '20px',
-    },
-    card: {
-      background: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.1)',
-      borderRadius: '16px',
-      padding: '28px',
-      backdropFilter: 'blur(10px)',
-    },
-    input: {
-      width: '100%',
-      padding: '11px 14px',
-      borderRadius: '10px',
-      border: '1px solid rgba(255,255,255,0.15)',
-      background: 'rgba(255,255,255,0.07)',
-      color: '#fff',
-      fontSize: '15px',
-      outline: 'none',
-      boxSizing: 'border-box',
-      marginTop: '6px',
-    },
-    label: {
-      display: 'block',
-      fontSize: '13px',
-      color: '#aaa',
-      marginBottom: '2px',
-      marginTop: '14px',
-    },
-    btn: {
-      padding: '12px 24px',
-      borderRadius: '10px',
-      border: 'none',
-      cursor: 'pointer',
-      fontWeight: '700',
-      fontSize: '15px',
-    },
-    btnPrimary: {
-      background: 'linear-gradient(90deg, #4f8ef7, #7c3aed)',
-      color: '#fff',
-    },
-    btnDanger: {
-      background: 'rgba(220,53,69,0.2)',
-      color: '#ff6b6b',
-      border: '1px solid rgba(220,53,69,0.4)',
-      padding: '6px 14px',
-      fontSize: '13px',
-      borderRadius: '8px',
-      cursor: 'pointer',
-    },
-    tab: (active) => ({
-      padding: '10px 22px',
-      borderRadius: '10px',
-      border: 'none',
-      cursor: 'pointer',
-      fontWeight: '600',
-      fontSize: '14px',
-      background: active ? 'rgba(79,142,247,0.3)' : 'transparent',
-      color: active ? '#4f8ef7' : '#888',
-      borderBottom: active ? '2px solid #4f8ef7' : '2px solid transparent',
-    }),
-    error: {
-      color: '#ff6b6b',
-      fontSize: '14px',
-      marginTop: '10px',
-      padding: '10px',
-      background: 'rgba(255,107,107,0.1)',
-      borderRadius: '8px',
-    },
-    success: {
-      color: '#6fcf97',
-      fontSize: '14px',
-      marginTop: '10px',
-      padding: '10px',
-      background: 'rgba(111,207,151,0.1)',
-      borderRadius: '8px',
-    },
-  };
-
-  // LOGIN SCREEN
   if (!loggedIn) {
     return (
-      <div style={css.page}>
-        <div style={{ maxWidth: '420px', margin: '80px auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <div style={{ fontSize: '40px', marginBottom: '8px' }}>🌀</div>
-            <h1 style={{ margin: 0, fontSize: '26px', fontWeight: '800', color: '#fff' }}>
-              Blurt Scheduler
-            </h1>
-            <p style={{ color: '#888', margin: '6px 0 0' }}>
-              Schedule posts on Blurt blockchain
-            </p>
+      <div className="min-h-screen bg-gradient-to-br from-[#0A0A0F] via-[#0F1117] to-[#151821] flex items-center justify-center p-6">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg mb-4">
+              <Calendar className="w-7 h-7 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Blurt Scheduler</h1>
+            <p className="text-gray-400 mt-2">Schedule posts on Blurt blockchain</p>
           </div>
-          <div style={css.card}>
-            <form onSubmit={handleLogin}>
-              <label style={css.label}>Blurt Username</label>
-              <input
-                style={css.input}
-                type="text"
-                placeholder="e.g. alice (without @)"
-                value={loginForm.username}
-                onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-                autoComplete="off"
-                required
-              />
-              <label style={css.label}>Posting Key (WIF)</label>
-              <input
-                style={css.input}
-                type="password"
-                placeholder="5xxxxxxxxxxxxxxxxxx..."
-                value={loginForm.postingKey}
-                onChange={(e) => setLoginForm({ ...loginForm, postingKey: e.target.value })}
-                autoComplete="off"
-                required
-              />
-              <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
-                🔒 Key is AES-256 encrypted before storage. Never stored plain text.
-              </p>
-              {loginError && <div style={css.error}>{loginError}</div>}
+          
+          <div className="bg-[#1A1D24]/80 backdrop-blur-xl border border-gray-800 rounded-2xl shadow-2xl p-6">
+            <form onSubmit={handleLogin} className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Blurt Username</label>
+                <input
+                  className="w-full px-4 py-2.5 bg-[#0F1117] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                  type="text"
+                  placeholder="e.g. alice (without @)"
+                  value={loginForm.username}
+                  onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                  autoComplete="off"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Posting Key (WIF)</label>
+                <input
+                  className="w-full px-4 py-2.5 bg-[#0F1117] border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                  type="password"
+                  placeholder="5xxxxxxxxxxxxxxxxxx..."
+                  value={loginForm.postingKey}
+                  onChange={(e) => setLoginForm({ ...loginForm, postingKey: e.target.value })}
+                  autoComplete="off"
+                  required
+                />
+              </div>
+              
+              <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-900/30 p-2.5 rounded-lg">
+                <AlertCircle size={14} />
+                <span>Key is AES-256 encrypted before storage. Never stored plain text.</span>
+              </div>
+              
+              {loginError && (
+                <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">
+                  <XCircle size={16} />
+                  {loginError}
+                </div>
+              )}
+              
               <button
                 type="submit"
                 disabled={loginLoading}
-                style={{ ...css.btn, ...css.btnPrimary, width: '100%', marginTop: '18px', opacity: loginLoading ? 0.7 : 1 }}
+                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loginLoading ? '⏳ Verifying on Blurt...' : '🚀 Login'}
+                {loginLoading ? 'Verifying on Blurt...' : 'Login'}
               </button>
             </form>
           </div>
@@ -421,154 +359,194 @@ async function handlePaste(e) {
     );
   }
 
-  // DASHBOARD
   const pendingCount = posts.filter((p) => p.status === 'pending').length;
   const doneCount    = posts.filter((p) => p.status === 'done').length;
   const failedCount  = posts.filter((p) => p.status === 'failed').length;
 
   return (
-    <div style={css.page}>
-      <div style={{ maxWidth: '780px', margin: '0 auto' }}>
-
+    <div className="min-h-screen bg-gradient-to-br from-[#0A0A0F] via-[#0F1117] to-[#151821]">
+      <div className="max-w-6xl mx-auto p-6 lg:p-8">
+        
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '22px', color: '#fff' }}>🌀 Blurt Scheduler</h1>
-            <p style={{ margin: '4px 0 0', color: '#4f8ef7', fontSize: '14px' }}>@{username}</p>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-blue-500/20 to-purple-600/20 rounded-xl">
+              <Calendar className="w-6 h-6 text-blue-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Blurt Scheduler</h1>
+              <p className="text-gray-400 text-sm">@{username}</p>
+            </div>
           </div>
           <button
             onClick={handleLogout}
-            style={{ ...css.btn, background: 'rgba(255,255,255,0.08)', color: '#ccc', fontSize: '13px', padding: '8px 18px' }}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 hover:bg-gray-800 text-gray-300 rounded-xl transition-all duration-200 border border-gray-700/50"
           >
+            <LogOut size={16} />
             Logout
           </button>
         </div>
 
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '14px', marginBottom: '24px' }}>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           {[
-            { label: 'Pending',   value: pendingCount, color: '#f6c90e' },
-            { label: 'Published', value: doneCount,    color: '#6fcf97' },
-            { label: 'Failed',    value: failedCount,  color: '#ff6b6b' },
-          ].map((s) => (
-            <div key={s.label} style={{ ...css.card, textAlign: 'center', padding: '16px' }}>
-              <div style={{ fontSize: '28px', fontWeight: '800', color: s.color }}>{s.value}</div>
-              <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>{s.label}</div>
+            { label: 'Pending', value: pendingCount, color: '#FBBF24', icon: Clock },
+            { label: 'Published', value: doneCount, color: '#10B981', icon: CheckCircle2 },
+            { label: 'Failed', value: failedCount, color: '#EF4444', icon: XCircle },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-[#1A1D24]/60 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5 hover:border-gray-700/70 transition-all">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-400 text-sm">{stat.label}</p>
+                  <p className="text-3xl font-bold text-white mt-1">{stat.value}</p>
+                </div>
+                <stat.icon size={28} style={{ color: stat.color, opacity: 0.7 }} />
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Manual Publish Trigger */}
-        <div style={{ ...css.card, marginBottom: '20px', padding: '16px 22px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-            <div>
-              <div style={{ fontWeight: '700', color: '#fff', fontSize: '14px' }}>🚀 Manual Publish</div>
-              <div style={{ color: '#888', fontSize: '12px', marginTop: '2px' }}>
-                Local testing ke liye — production mein GitHub Actions automatically karega
+        {/* Manual Publish Card */}
+        <div className="bg-[#1A1D24]/60 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5 mb-8 hover:border-gray-700/70 transition-all">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <Zap size={20} className="text-blue-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white">Manual Publish</h3>
+                <p className="text-gray-400 text-sm">For local testing — GitHub Actions handles auto-publish in production</p>
               </div>
             </div>
             <button
               onClick={handleTriggerCron}
               disabled={cronLoading}
-              style={{ ...css.btn, ...css.btnPrimary, fontSize: '13px', padding: '9px 20px', opacity: cronLoading ? 0.7 : 1 }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium rounded-lg transition-all disabled:opacity-50"
             >
-              {cronLoading ? '⏳ Publishing...' : '▶ Publish Due Posts'}
+              <Send size={16} />
+              {cronLoading ? 'Publishing...' : 'Publish Due Posts'}
             </button>
           </div>
           {cronResult && (
-            <div style={{ marginTop: '10px', padding: '10px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', fontSize: '13px', color: '#e0e0e0' }}>
+            <div className="mt-4 p-3 bg-gray-900/50 rounded-lg text-sm text-gray-300 border border-gray-800">
               {cronResult}
             </div>
           )}
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px' }}>
-          <button style={css.tab(activeTab === 'schedule')} onClick={() => setActiveTab('schedule')}>
-            ✏️ Schedule New Post
+        <div className="flex gap-1 bg-[#1A1D24]/40 p-1 rounded-xl w-fit mb-6">
+          <button
+            onClick={() => setActiveTab('schedule')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all duration-200 ${
+              activeTab === 'schedule' 
+                ? 'bg-blue-600 text-white shadow-lg' 
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+            }`}
+          >
+            <Plus size={16} />
+            Schedule New Post
           </button>
-          <button style={css.tab(activeTab === 'list')} onClick={() => { setActiveTab('list'); fetchPosts(); }}>
-            📋 My Posts ({posts.length})
+          <button
+            onClick={() => { setActiveTab('list'); fetchPosts(); }}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all duration-200 ${
+              activeTab === 'list' 
+                ? 'bg-blue-600 text-white shadow-lg' 
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+            }`}
+          >
+            <ListTodo size={16} />
+            My Posts ({posts.length})
           </button>
         </div>
 
         {/* Schedule Tab */}
         {activeTab === 'schedule' && (
-          <div style={css.card}>
-            <h2 style={{ margin: '0 0 20px', fontSize: '18px', color: '#fff' }}>Create Scheduled Post</h2>
-            <form onSubmit={handleSchedule}>
-              <label style={css.label}>Post Title *</label>
-              <input
-                style={css.input}
-                type="text"
-                placeholder="My awesome Blurt post"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                required
-              />
-            <label style={css.label}>Post Content (Markdown supported) *</label>
-<textarea
-  ref={textareaRef}
-  style={{ ...css.input, height: '160px', resize: 'vertical', lineHeight: '1.5' }}
-  placeholder="Write your post content here... Paste image directly (Ctrl+V) or use upload button below"
-  value={form.body}
-  onChange={(e) => setForm({ ...form, body: e.target.value })}
-  onPaste={handlePaste}
-  required
-/>
-
-{/* Image Upload Button */}
-<div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-  <label style={{
-    padding: '8px 16px',
-    background: 'rgba(79,142,247,0.2)',
-    border: '1px solid rgba(79,142,247,0.4)',
-    borderRadius: '8px',
-    color: '#4f8ef7',
-    fontSize: '13px',
-    cursor: 'pointer',
-    fontWeight: '600',
-  }}>
-    🖼️ Upload Image
-    <input
-      type="file"
-      accept="image/*"
-      style={{ display: 'none' }}
-      onChange={(e) => e.target.files[0] && handleImageUpload(e.target.files[0])}
-    />
-  </label>
-  <span style={{ fontSize: '12px', color: '#666' }}>
-    Ya seedha Ctrl+V se paste karo
-  </span>
-</div>
-              <label style={css.label}>Tags (comma-separated)</label>
-              <input
-                style={css.input}
-                type="text"
-                placeholder="blurt, life, photography"
-                value={form.tags}
-                onChange={(e) => setForm({ ...form, tags: e.target.value })}
-              />
-              <label style={css.label}>Schedule Date & Time *</label>
-              <input
-                style={css.input}
-                type="datetime-local"
-                min={getMinDateTime()}
-                value={form.scheduled_time}
-                onChange={(e) => setForm({ ...form, scheduled_time: e.target.value })}
-                required
-              />
-              <p style={{ fontSize: '12px', color: '#666', margin: '4px 0 0' }}>
-                ⏰ Local pe manually publish karo — production mein auto hoga har 10 min
-              </p>
-              {formError   && <div style={css.error}>{formError}</div>}
-              {formSuccess && <div style={css.success}>{formSuccess}</div>}
+          <div className="bg-[#1A1D24]/60 backdrop-blur-sm border border-gray-800/50 rounded-xl p-6">
+            <h2 className="text-xl font-semibold text-white mb-6">Create Scheduled Post</h2>
+            <form onSubmit={handleSchedule} className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Post Title *</label>
+                <input
+                  className="w-full px-4 py-2.5 bg-[#0F1117] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                  type="text"
+                  placeholder="My awesome Blurt post"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Post Content (Markdown supported) *</label>
+                <textarea
+                  ref={textareaRef}
+                  className="w-full px-4 py-2.5 bg-[#0F1117] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all resize-y"
+                  rows={6}
+                  placeholder="Write your post content here... Paste image directly (Ctrl+V) or use upload button below"
+                  value={form.body}
+                  onChange={(e) => setForm({ ...form, body: e.target.value })}
+                  onPaste={handlePaste}
+                  required
+                />
+                <div className="flex items-center gap-3 mt-2">
+                  <label className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 hover:bg-gray-800 text-gray-300 text-sm rounded-lg cursor-pointer transition-all border border-gray-700">
+                    <ImageIcon size={14} />
+                    Upload Image
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => e.target.files[0] && handleImageUpload(e.target.files[0])}
+                    />
+                  </label>
+                  <span className="text-xs text-gray-500">Or paste directly with Ctrl+V</span>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Tags (comma-separated)</label>
+                <input
+                  className="w-full px-4 py-2.5 bg-[#0F1117] border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                  type="text"
+                  placeholder="blurt, life, photography"
+                  value={form.tags}
+                  onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1.5">Schedule Date & Time *</label>
+                <input
+                  className="w-full px-4 py-2.5 bg-[#0F1117] border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
+                  type="datetime-local"
+                  min={getMinDateTime()}
+                  value={form.scheduled_time}
+                  onChange={(e) => setForm({ ...form, scheduled_time: e.target.value })}
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">Manual publish for local — auto every 10 min in production</p>
+              </div>
+              
+              {formError && (
+                <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 p-3 rounded-lg">
+                  <XCircle size={16} />
+                  {formError}
+                </div>
+              )}
+              {formSuccess && (
+                <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 p-3 rounded-lg">
+                  <CheckCircle2 size={16} />
+                  {formSuccess}
+                </div>
+              )}
+              
               <button
                 type="submit"
                 disabled={formLoading}
-                style={{ ...css.btn, ...css.btnPrimary, marginTop: '20px', opacity: formLoading ? 0.7 : 1 }}
+                className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50"
               >
-                {formLoading ? '⏳ Scheduling...' : '📅 Schedule Post'}
+                {formLoading ? 'Scheduling...' : 'Schedule Post'}
               </button>
             </form>
           </div>
@@ -578,58 +556,76 @@ async function handlePaste(e) {
         {activeTab === 'list' && (
           <div>
             {postsLoading ? (
-              <div style={{ ...css.card, textAlign: 'center', color: '#888' }}>Loading posts...</div>
+              <div className="bg-[#1A1D24]/60 backdrop-blur-sm border border-gray-800/50 rounded-xl p-8 text-center">
+                <div className="animate-pulse text-gray-400">Loading posts...</div>
+              </div>
             ) : posts.length === 0 ? (
-              <div style={{ ...css.card, textAlign: 'center', color: '#888' }}>
-                <div style={{ fontSize: '40px', marginBottom: '12px' }}>📭</div>
-                <p>No posts yet. Schedule your first post!</p>
+              <div className="bg-[#1A1D24]/60 backdrop-blur-sm border border-gray-800/50 rounded-xl p-12 text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-800/50 rounded-2xl mb-4">
+                  <FileText size={32} className="text-gray-500" />
+                </div>
+                <h3 className="text-xl font-medium text-white mb-2">No posts yet</h3>
+                <p className="text-gray-400 mb-6">Schedule your first post to get started</p>
                 <button
                   onClick={() => setActiveTab('schedule')}
-                  style={{ ...css.btn, ...css.btnPrimary, marginTop: '8px' }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium rounded-lg transition-all"
                 >
+                  <Plus size={16} />
                   Create Post
                 </button>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="space-y-3">
                 {posts.map((post) => (
-                  <div key={post._id} style={{ ...css.card, padding: '18px 22px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ flex: 1, minWidth: '200px' }}>
-                        <div style={{ fontWeight: '700', fontSize: '16px', color: '#fff', marginBottom: '4px' }}>
-                          {post.title}
+                  <div key={post._id} className="bg-[#1A1D24]/60 backdrop-blur-sm border border-gray-800/50 rounded-xl p-5 hover:border-gray-700/70 transition-all">
+                    <div className="flex flex-col lg:flex-row justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <h3 className="font-semibold text-white text-lg truncate">{post.title}</h3>
+                          <div className="flex items-center gap-2">
+                            {statusBadge(post.status)}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '12px', color: '#888', marginBottom: '6px' }}>
-                          @{post.account_name} · Tags: {post.tags}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm">
+                          <span className="text-gray-400">@{post.account_name}</span>
+                          <span className="text-gray-500">·</span>
+                          <span className="text-gray-400">Tags: {post.tags}</span>
                         </div>
-                        <div style={{ fontSize: '13px', color: '#aaa' }}>
-                          📅 {formatDate(post.scheduled_time)}
+                        <div className="flex items-center gap-2 mt-2 text-sm text-gray-400">
+                          <Calendar size={14} />
+                          {formatDate(post.scheduled_time)}
                         </div>
-                                       {post.status === 'done' && post.permlink && (
+                        
+                        {post.status === 'done' && post.permlink && (
                           <a
                             href={'https://blurt.blog/@' + post.account_name + '/' + post.permlink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{ color: '#4f8ef7', fontSize: '12px', marginTop: '4px', display: 'block' }}
+                            className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm mt-2 transition-colors"
                           >
-                            View on Blurt
+                            View on Blurt <ExternalLink size={12} />
                           </a>
                         )}
                         
                         {post.status === 'failed' && post.error_message && (
-                          <div style={{ color: '#ff6b6b', fontSize: '12px', marginTop: '4px' }}>
-                            Error: {post.error_message}
+                          <div className="flex items-start gap-2 mt-2 text-sm text-red-400 bg-red-500/10 p-2 rounded-lg">
+                            <AlertCircle size={14} className="mt-0.5" />
+                            <span>Error: {post.error_message}</span>
                           </div>
                         )}
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                        {statusBadge(post.status)}
-                        {post.status === 'pending' && (
-                          <button onClick={() => handleDelete(post._id)} style={css.btnDanger}>
-                            🗑 Cancel
+                      
+                      {post.status === 'pending' && (
+                        <div className="flex items-center justify-end">
+                          <button 
+                            onClick={() => handleDelete(post._id)} 
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-sm transition-all border border-red-500/20"
+                          >
+                            <Trash2 size={14} />
+                            Cancel
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -637,7 +633,6 @@ async function handlePaste(e) {
             )}
           </div>
         )}
-
       </div>
     </div>
   );
