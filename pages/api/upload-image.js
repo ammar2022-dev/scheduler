@@ -24,7 +24,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Get posting key from DB
     await dbConnect();
     const account = await Account.findOne({
       account_name: username.toLowerCase().trim(),
@@ -35,14 +34,12 @@ export default async function handler(req, res) {
     }
 
     const postingKey = decrypt(account.posting_key_encrypted);
-
-    // 2. Convert base64 to buffer
     const imageBuffer = Buffer.from(imageBase64, 'base64');
-
-    // 3. Generate SHA256 hash of image
+    
+    // Generate SHA256 hash of image for filename
     const imageHash = crypto.createHash('sha256').update(imageBuffer).digest('hex');
     
-    // 4. Sign the hash with private key
+    // Sign the hash with private key
     const privateKey = PrivateKey.fromString(postingKey);
     const hashBuffer = Buffer.from(imageHash, 'hex');
     const signatureBuffer = privateKey.sign(hashBuffer);
@@ -50,33 +47,45 @@ export default async function handler(req, res) {
 
     console.log(`[IMAGE] Uploading for @${username}`);
     console.log(`[IMAGE] Image hash: ${imageHash}`);
-    console.log(`[IMAGE] Signature: ${signature.slice(0, 40)}...`);
 
-    // 5. Upload to CORRECT Blurt image server
-    const uploadUrl = 'https://img.blurt.blog/api/v1/upload'; // New endpoint
+    // CORRECT ENDPOINT: Direct POST to blurtimage endpoint
+    const uploadUrl = `https://img.blurt.blog/blurtimage/${username}/`;
     
-    // Prepare multipart form data
+    // Send as multipart/form-data
     const formData = new FormData();
-    formData.append('username', username);
+    formData.append('image', new Blob([imageBuffer], { type: 'image/png' }), `${imageHash}.png`);
     formData.append('signature', signature);
-    formData.append('imageHash', imageHash);
-    formData.append('image', new Blob([imageBuffer], { type: 'image/png' }), filename || 'image.png');
+    formData.append('hash', imageHash);
 
     const uploadRes = await fetch(uploadUrl, {
       method: 'POST',
       body: formData,
+      // Don't set Content-Type header - fetch will set it automatically with boundary
     });
 
-    const uploadData = await uploadRes.json();
-    console.log(`[IMAGE] Upload response:`, uploadData);
+    const responseText = await uploadRes.text();
+    console.log(`[IMAGE] Response status: ${uploadRes.status}`);
+    console.log(`[IMAGE] Response text: ${responseText.substring(0, 200)}`);
 
-    if (!uploadRes.ok || !uploadData.ok) {
-      throw new Error(`Upload failed: ${uploadData.message || uploadRes.statusText}`);
+    if (!uploadRes.ok) {
+      throw new Error(`Upload failed with status ${uploadRes.status}: ${responseText}`);
     }
 
-    // Extract URL from response
-    const imageUrl = uploadData.url;
-    
+    let imageUrl;
+    try {
+      // Try to parse as JSON
+      const uploadData = JSON.parse(responseText);
+      imageUrl = uploadData.url || uploadData.image_url || uploadData;
+    } catch {
+      // If not JSON, maybe server returns plain text URL
+      imageUrl = responseText.trim();
+    }
+
+    // Construct URL if needed
+    if (!imageUrl || !imageUrl.startsWith('http')) {
+      imageUrl = `https://img.blurt.blog/blurtimage/${username}/${imageHash}.png`;
+    }
+
     console.log(`[IMAGE] ✅ Uploaded: ${imageUrl}`);
 
     return res.status(200).json({
