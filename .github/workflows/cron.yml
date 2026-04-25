@@ -1,0 +1,33 @@
+name: Blurt Post Publisher
+
+on:
+  schedule:
+    - cron: '* * * * *'  # Har minute check karo
+  workflow_dispatch:      # Manual trigger bhi ho sake
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Publish Due Posts
+        run: |
+          echo "⏰ Checking at $(date -u)"
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.VERCEL_APP_URL }}/api/check-posts")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          echo "Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Failed with status $HTTP_CODE"
+            exit 1
+          fi
+          
+          echo "✅ Done"
