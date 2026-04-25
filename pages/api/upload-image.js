@@ -39,46 +39,44 @@ export default async function handler(req, res) {
     // 2. Convert base64 to buffer
     const imageBuffer = Buffer.from(imageBase64, 'base64');
 
-    // 3. Sign with "ImageSigningChallenge" prefix
-    const prefix = Buffer.from('ImageSigningChallenge');
-    const buf = Buffer.concat([prefix, imageBuffer]);
-    const bufSha = crypto.createHash('sha256').update(buf).digest();
+    // 3. Generate SHA256 hash of image
+    const imageHash = crypto.createHash('sha256').update(imageBuffer).digest('hex');
     
+    // 4. Sign the hash with private key
     const privateKey = PrivateKey.fromString(postingKey);
-    // FIX: sign() returns Buffer or string directly, no .toHex() needed
-    const signatureBuffer = privateKey.sign(bufSha);
+    const hashBuffer = Buffer.from(imageHash, 'hex');
+    const signatureBuffer = privateKey.sign(hashBuffer);
     const signature = signatureBuffer.toString('hex');
 
-    console.log(`[IMAGE] Uploading for @${username}, sig: ${signature.slice(0, 20)}...`);
+    console.log(`[IMAGE] Uploading for @${username}`);
+    console.log(`[IMAGE] Image hash: ${imageHash}`);
+    console.log(`[IMAGE] Signature: ${signature.slice(0, 40)}...`);
 
-    // 4. Upload to Blurt image server
-    const uploadUrl = `https://img-upload.blurt.world/${username}/${signature}`;
+    // 5. Upload to CORRECT Blurt image server
+    const uploadUrl = 'https://img.blurt.blog/api/v1/upload'; // New endpoint
+    
+    // Prepare multipart form data
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('signature', signature);
+    formData.append('imageHash', imageHash);
+    formData.append('image', new Blob([imageBuffer], { type: 'image/png' }), filename || 'image.png');
 
     const uploadRes = await fetch(uploadUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': imageBuffer.length.toString(),
-      },
-      body: imageBuffer,
+      body: formData,
     });
 
-    const uploadText = await uploadRes.text();
-    console.log(`[IMAGE] Upload response ${uploadRes.status}: ${uploadText.slice(0, 200)}`);
+    const uploadData = await uploadRes.json();
+    console.log(`[IMAGE] Upload response:`, uploadData);
 
-    if (!uploadRes.ok) {
-      throw new Error(`Upload failed: ${uploadRes.status} — ${uploadText}`);
+    if (!uploadRes.ok || !uploadData.ok) {
+      throw new Error(`Upload failed: ${uploadData.message || uploadRes.statusText}`);
     }
 
-    let imageUrl;
-    try {
-      const uploadData = JSON.parse(uploadText);
-      imageUrl = uploadData.url || uploadData.image_url || uploadData;
-    } catch {
-      // Some servers return plain URL
-      imageUrl = uploadText.trim();
-    }
-
+    // Extract URL from response
+    const imageUrl = uploadData.url;
+    
     console.log(`[IMAGE] ✅ Uploaded: ${imageUrl}`);
 
     return res.status(200).json({
