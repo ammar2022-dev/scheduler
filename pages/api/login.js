@@ -43,7 +43,7 @@ export default async function handler(req, res) {
 
   if (!account) {
     return res.status(404).json({ 
-      error: 'Account not found on Blurt blockchain. Check username or try again.' 
+      error: 'Could not fetch account from Blurt. Node may be down — try again in 30 seconds.' 
     });
   }
 
