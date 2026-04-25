@@ -8,7 +8,7 @@ const RPC_NODES = [
 ];
 
 const AUTHOR = "ammarfahim2026";
-const POSTING_KEY = "5KUYNYKRggDQ2R2iDhcDnesHsqyTRntpWbATAYEhKZm5Msur2cv";
+const POSTING_KEY = "";
 
 async function postToBlurt() {
     console.log("🚀 Initializing Blurt client...");
