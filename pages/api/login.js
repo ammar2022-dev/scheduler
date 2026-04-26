@@ -1,10 +1,45 @@
 import dbConnect from '../../lib/mongodb';
 import { encrypt } from '../../lib/encrypt';
-import { getAccount } from '../../lib/blurt';
 import Account from '../../models/Account';
 import { PrivateKey } from 'dsteem';
 
 const ADDRESS_PREFIX = 'BLT';
+
+const RPC_NODES = [
+  'https://rpc.blurt.blog',       // Primary — Blurt core team
+  'https://rpc.drakernoise.com',  // Fallback 1
+  'https://blurt-rpc.saboin.com', // Fallback 2
+  'https://rpc.beblurt.com',      // Fallback 3
+];
+
+async function getAccountFromAnyNode(username) {
+  for (const node of RPC_NODES) {
+    try {
+      const res = await fetch(node, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'condenser_api.get_accounts',
+          params: [[username]],
+          id: 1,
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+
+      const data = await res.json();
+      const accounts = data?.result;
+
+      if (accounts && accounts.length > 0 && accounts[0].name === username) {
+        console.log(`[LOGIN] Account found on node: ${node}`);
+        return accounts[0];
+      }
+    } catch (err) {
+      console.warn(`[LOGIN] Node failed: ${node} — ${err.message}`);
+    }
+  }
+  return null;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -22,54 +57,38 @@ export default async function handler(req, res) {
 
   // Step 1: Basic WIF format check
   if (!cleanKey.startsWith('5') || cleanKey.length < 50) {
-    return res.status(400).json({ error: 'Invalid posting key format. Must start with "5"' });
+    return res.status(400).json({ error: 'Invalid posting key format' });
   }
 
-  // Step 2: Parse private key
+  // Step 2: Parse private key and derive public key
   let derivedPublicKey;
   try {
     const privateKey = PrivateKey.fromString(cleanKey);
     derivedPublicKey = privateKey.createPublic(ADDRESS_PREFIX).toString();
-    console.log('[LOGIN] Derived public key:', derivedPublicKey);
+    console.log(`[LOGIN] Derived public key: ${derivedPublicKey}`);
   } catch (err) {
     return res.status(400).json({ error: 'Invalid posting key — cannot parse WIF' });
   }
 
-  // Step 3: Try to verify on blockchain
-  let account = null;
-  let blockchainVerified = false;
+  // Step 3: Fetch account from blockchain — try all nodes
+  const account = await getAccountFromAnyNode(cleanUsername);
 
-  try {
-    account = await getAccount(cleanUsername);
-  } catch (err) {
-    console.warn('[LOGIN] getAccount threw error:', err.message);
+  // Step 4: All nodes failed — block login, never allow unverified access
+  if (!account) {
+    return res.status(503).json({
+      error: 'Unable to verify account. Blurt nodes are unreachable. Please try again in a few minutes.',
+    });
   }
 
-  if (account) {
-    // Account found — verify key matches
-    const postingAuthorities = account?.posting?.key_auths || [];
-    console.log('[LOGIN] Posting auths:', JSON.stringify(postingAuthorities));
+  // Step 5: Verify posting key matches blockchain record
+  const postingAuthorities = account?.posting?.key_auths || [];
+  const isValidKey = postingAuthorities.some(([pubKey]) => pubKey === derivedPublicKey);
 
-    const isValidKey = postingAuthorities.some(
-      ([pubKey]) => pubKey === derivedPublicKey
-    );
-
-    if (!isValidKey) {
-      return res.status(401).json({
-        error: 'Wrong posting key for this account.',
-      });
-    }
-
-    blockchainVerified = true;
-    console.log('[LOGIN] ✅ Key verified on blockchain');
-
-  } else {
-    // Nodes down — allow login based on key format only
-    // Wrong key will simply fail when trying to broadcast a post
-    console.warn('[LOGIN] ⚠️ Could not verify on blockchain — nodes down. Allowing login based on key format.');
+  if (!isValidKey) {
+    return res.status(401).json({ error: 'Incorrect posting key for this account' });
   }
 
-  // Step 4: Save to DB
+  // Step 6: Save to DB
   try {
     await dbConnect();
     const encryptedKey = encrypt(cleanKey);
@@ -80,15 +99,12 @@ export default async function handler(req, res) {
       { upsert: true, new: true }
     );
 
-    console.log(`[LOGIN] ✅ @${cleanUsername} saved to DB. Verified: ${blockchainVerified}`);
+    console.log(`[LOGIN] ✅ @${cleanUsername} verified and saved`);
 
     return res.status(200).json({
       success: true,
-      message: `Logged in as @${cleanUsername}`,
       username: cleanUsername,
-      verified: blockchainVerified,
     });
-
   } catch (err) {
     console.error('[LOGIN] DB error:', err.message);
     return res.status(500).json({ error: 'Login failed: ' + err.message });
