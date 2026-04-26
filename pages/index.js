@@ -200,15 +200,20 @@ export default function Home() {
   const textareaRef = useRef(null);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('blurt_user');
-    if (saved) { setUsername(saved); setLoggedIn(true); }
-  }, []);
-
+  const saved      = sessionStorage.getItem('blurt_user');
+  const savedToken = sessionStorage.getItem('blurt_token');
+  if (saved && savedToken) {
+    setUsername(saved);
+    setToken(savedToken);
+    setLoggedIn(true);
+  }
+}, []);
   const fetchPosts = useCallback(async () => {
     if (!username) return;
     setPostsLoading(true);
     try {
-      const res = await fetch(`/api/posts?username=${encodeURIComponent(username)}`);
+const res = await fetch(
+  `/api/posts?username=${encodeURIComponent(username)}&token=${encodeURIComponent(token)}`);
       const data = await res.json();
       if (data.success) setPosts(data.posts || []);
     } catch (e) { console.error(e); }
@@ -238,12 +243,14 @@ export default function Home() {
         }),
       });
       const data = await res.json();
-      if (data.success) {
-        sessionStorage.setItem('blurt_user', data.username);
-        setUsername(data.username);
-        setLoggedIn(true);
-        setLoginForm({ username: '', postingKey: '' });
-      } else {
+     // handleLogin function mein — data.success ke andar
+if (data.success) {
+  sessionStorage.setItem('blurt_user', data.username);
+  sessionStorage.setItem('blurt_token', data.token); // <-- ADD
+  setUsername(data.username);
+  setToken(data.token);                               // <-- ADD
+  setLoggedIn(true);
+}else {
         setLoginError(data.error || 'Authentication failed');
       }
     } catch {
@@ -255,10 +262,12 @@ export default function Home() {
 
   function handleLogout() {
     sessionStorage.removeItem('blurt_user');
+  sessionStorage.removeItem('blurt_token'); // same jagah saath mein
     setLoggedIn(false);
     setUsername('');
     setPosts([]);
     setForm({ title: '', body: '', tags: 'blurt-1787181', scheduled_time: '' });
+
   }
 
   async function handleSchedule(e) {
