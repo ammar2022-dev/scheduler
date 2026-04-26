@@ -258,7 +258,7 @@ export default function Home() {
     setLoggedIn(false);
     setUsername('');
     setPosts([]);
-    setForm({ title: '', body: '', tags: 'blurt', scheduled_time: '' });
+    setForm({ title: '', body: '', tags: 'blurt-1787181', scheduled_time: '' });
   }
 
   async function handleSchedule(e) {
@@ -284,7 +284,7 @@ export default function Home() {
       const data = await res.json();
       if (data.success) {
         setFormSuccess(`Post scheduled for ${formatDate(form.scheduled_time)}`);
-        setForm({ title: '', body: '', tags: 'blurt', scheduled_time: '' });
+        setForm({ title: '', body: '', tags: 'blurt-1787181', scheduled_time: '' });
         fetchPosts();
         setTimeout(() => { setFormSuccess(''); setActiveTab('list'); }, 1500);
       } else {
