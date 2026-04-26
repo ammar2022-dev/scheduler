@@ -184,6 +184,7 @@ const css = {
 export default function Home() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
+  const [token, setToken] = useState('');
   const [loginForm, setLoginForm] = useState({ username: '', postingKey: '' });
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
